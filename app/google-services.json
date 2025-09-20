@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "268141815174",
+    "project_id": "proyectmovilsp",
+    "storage_bucket": "proyectmovilsp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:268141815174:android:a24e90d6d70e5599757807",
+        "android_client_info": {
+          "package_name": "com.example.spotifyclone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3pN3RrKvokvlSKvU6nKCJud9ChC1XDao"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
