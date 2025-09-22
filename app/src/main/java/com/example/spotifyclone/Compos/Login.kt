@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,7 +32,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
+//
+//
 /* ---------------- LOGIN ---------------- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +45,10 @@ fun LoginScreen(
     onGoRegister: () -> Unit
 ) {
     val ctx = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
+    val prefs = remember { PreferencesManager(ctx) } // 🔹 Instancia de SharedPreferences
+
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
@@ -89,9 +98,47 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    Toast.makeText(ctx, "Inicio de sesión correcto", Toast.LENGTH_SHORT).show()
-                    Log.d("LoginScreen", "Login con email: $email")
-                    onLogin()
+                    if (email.isBlank() || password.isBlank()) {
+                        Toast.makeText(ctx, "Completa todos los campos", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    // 🔹 Iniciar sesión con FirebaseAuth
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                val userId = auth.currentUser?.uid
+                                if (userId != null) {
+                                    // 🔹 Guardamos sesión en SharedPreferences
+                                    prefs.saveUserId(userId)
+
+                                    // 🔹 Recuperar datos del usuario desde Firestore
+                                    db.collection("usuarios")
+                                        .document(userId)
+                                        .get()
+                                        .addOnSuccessListener { doc ->
+                                            val nombre = doc.getString("nombre") ?: ""
+                                            val apellido = doc.getString("apellido") ?: ""
+                                            Toast.makeText(
+                                                ctx,
+                                                "Bienvenido $nombre $apellido",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            Log.d("LoginScreen", "Login correcto: $email")
+                                            onLogin()
+                                        }
+                                        .addOnFailureListener {
+                                            Toast.makeText(ctx, "Error al obtener datos", Toast.LENGTH_SHORT).show()
+                                        }
+                                }
+                            } else {
+                                Toast.makeText(
+                                    ctx,
+                                    "Error: ${task.exception?.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -110,3 +157,5 @@ fun LoginScreen(
         }
     }
 }
+
+private fun PreferencesManager.saveUserId(userId: String) {}

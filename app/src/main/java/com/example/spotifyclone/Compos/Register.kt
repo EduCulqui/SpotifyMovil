@@ -27,6 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 
 /* ---------------- REGISTRO ---------------- */
@@ -34,6 +36,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun RegisterScreen(onRegistered: () -> Unit) {
     val ctx = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
 
     // Campos de entrada
     var nombre by rememberSaveable { mutableStateOf("") }
@@ -54,7 +58,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                 .padding(20.dp),
             verticalArrangement = Arrangement.Center
         ) {
-            // Campo Nombre
+            // ---------------- CAMPOS ----------------
             OutlinedTextField(
                 value = nombre,
                 onValueChange = { nombre = it },
@@ -64,7 +68,6 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
 
-            // Campo Apellido
             OutlinedTextField(
                 value = apellido,
                 onValueChange = { apellido = it },
@@ -74,7 +77,6 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
 
-            // Campo Teléfono (opcional)
             OutlinedTextField(
                 value = telefono,
                 onValueChange = { telefono = it },
@@ -85,7 +87,6 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
 
-            // Campo Email
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -96,7 +97,6 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
 
-            // Campo Contraseña
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -108,7 +108,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             )
             Spacer(Modifier.height(20.dp))
 
-            // Botón de registro con validaciones
+            // ---------------- BOTÓN ----------------
             Button(
                 onClick = {
                     when {
@@ -131,12 +131,34 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                             Toast.makeText(ctx, "La contraseña debe contener al menos un número", Toast.LENGTH_SHORT).show()
                         }
                         else -> {
-                            Toast.makeText(ctx, "Usuario registrado: $nombre $apellido", Toast.LENGTH_SHORT).show()
-                            Log.d(
-                                "RegisterScreen",
-                                "Registrado -> Nombre: $nombre, Apellido: $apellido, Teléfono: $telefono, Email: $email, Password: $password"
-                            )
-                            onRegistered()
+                            // 🔹 Crear usuario en FirebaseAuth
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        val userId = auth.currentUser?.uid
+                                        val userData = hashMapOf(
+                                            "nombre" to nombre,
+                                            "apellido" to apellido,
+                                            "telefono" to telefono,
+                                            "email" to email
+                                        )
+                                        // 🔹 Guardar en Firestore
+                                        if (userId != null) {
+                                            db.collection("usuarios")
+                                                .document(userId)
+                                                .set(userData)
+                                                .addOnSuccessListener {
+                                                    Toast.makeText(ctx, "Usuario registrado", Toast.LENGTH_SHORT).show()
+                                                    onRegistered()
+                                                }
+                                                .addOnFailureListener {
+                                                    Toast.makeText(ctx, "Error al guardar datos", Toast.LENGTH_SHORT).show()
+                                                }
+                                        }
+                                    } else {
+                                        Toast.makeText(ctx, "Error: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                         }
                     }
                 },
@@ -148,4 +170,5 @@ fun RegisterScreen(onRegistered: () -> Unit) {
         }
     }
 }
+
 

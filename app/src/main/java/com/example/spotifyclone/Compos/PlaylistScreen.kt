@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -34,7 +36,6 @@ import com.example.spotifyclone.entities.Cancion
 import com.example.spotifyclone.viewmodels.PlaylistViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(
@@ -46,7 +47,7 @@ fun PlaylistScreen(
     val canciones by viewModel.canciones
     val isLoading by viewModel.isLoading
 
-    // Cada vez que cambie el ID de la playlist, cargamos sus canciones
+    // Cargar canciones automáticamente cuando cambia el ID
     LaunchedEffect(playlistId) {
         if (playlistId.isNotBlank()) {
             viewModel.cargarCanciones(playlistId)
@@ -93,7 +94,6 @@ fun PlaylistScreen(
     }
 }
 
-
 @Composable
 private fun CancionItem(cancion: Cancion) {
     Card(
@@ -107,6 +107,14 @@ private fun CancionItem(cancion: Cancion) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Ícono de triángulo fijo a la izquierda
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Play",
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = cancion.titulo,
@@ -120,9 +128,6 @@ private fun CancionItem(cancion: Cancion) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            IconButton(onClick = { /* TODO: reproducir canción */ }) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir")
             }
         }
     }

@@ -54,30 +54,32 @@ import com.example.spotifyclone.viewmodels.PlaylistViewModel
 @Composable
 fun HomeScreen(
     onPlaylistClick: (String, String) -> Unit,
+    onConfigClick: () -> Unit,
+    onPerfilClick: () -> Unit, // 👉 agregado
     viewModel: PlaylistViewModel = viewModel()
 ) {
     val featuredPlaylists = listOf(
-        Triple("top_peru", "Top Perú", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("descubrimiento_semanal", "Descubrimiento Semanal", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("exitos_globales", "Éxitos Globales", "https://i.imgur.com/gkScsMz.jpeg"),
+        Triple("top_peru", "Top Perú", "https://i.postimg.cc/NLqfkW46/topPeru.jpg"),
+        Triple("descubrimiento_semanal", "Descubrimiento Semanal", "https://i.postimg.cc/6q1C65B9/desc-Semanal.jpg"),
+        Triple("exitos_globales", "Éxitos Globales", "https://i.postimg.cc/sXxXjPxh/global-Music.png"),
         Triple("rock", "Lo mejor del Rock", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("novedades_latinas", "Novedades Latinas", "https://i.imgur.com/gkScsMz.jpeg")
+        Triple("novedades_latinas", "Novedades Latinas", "https://i.postimg.cc/pXfn1ZFW/Music-Latin.jpg")
     )
 
     val recommendedPlaylists = listOf(
-        Triple("dj_mix", "DJ mix", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("baladas", "Baladas", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("reggaeton_2023", "Reggaeton 2023", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("pop", "Pop", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("cumbia", "Cumbia", "https://i.imgur.com/gkScsMz.jpeg")
+        Triple("dj_mix", "DJ mix", "https://i.postimg.cc/v8LQJS3N/djMix.png"),
+        Triple("baladas", "Baladas", "https://i.postimg.cc/jjXc0Tnj/balad.jpg"),
+        Triple("reggaeton_2023", "Reggaeton 2023", "https://i.postimg.cc/59ZRmxBc/reggaeton.jpg"),
+        Triple("pop", "Pop", "https://i.postimg.cc/765KgcbY/pop.jpg"),
+        Triple("cumbia", "Cumbia", "https://i.postimg.cc/rFNNtcgN/cumbia.jpg")
     )
 
     val morePlaylists = listOf(
-        Triple("clasicos", "Clásicos", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("salsa", "Salsa", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("pachanga", "Pachanga", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("perreo", "Perreo", "https://i.imgur.com/gkScsMz.jpeg"),
-        Triple("rap", "Rap", "https://i.imgur.com/gkScsMz.jpeg")
+        Triple("clasicos", "Clásicos", "https://i.postimg.cc/L5zw170g/clasico.jpg"),
+        Triple("salsa", "Salsa", "https://i.postimg.cc/cJgD32v1/salsa.jpg"),
+        Triple("pachanga", "Pachanga", "https://i.postimg.cc/QNkfcpd7/pachanga.jpg"),
+        Triple("perreo", "Perreo", "https://i.postimg.cc/TwTDxWv8/perreo.jpg"),
+        Triple("rap", "Rap", "https://i.postimg.cc/qB5zbFqH/rap.jpg")
     )
 
     Scaffold(
@@ -85,23 +87,16 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Inicio") },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        Log.d("HomeScreen", "Configuración presionada")
-                    }) {
+                    IconButton(onClick = onConfigClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Configuración")
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        Log.d("HomeScreen", "Perfil presionado")
-                    }) {
+                    IconButton(onClick = onPerfilClick) { // 👉 usa el nuevo callback
                         Icon(Icons.Default.AccountCircle, contentDescription = "Perfil")
                     }
                 }
             )
-        },
-        bottomBar = {
-            BottomNavigationBar()
         }
     ) { padding ->
         LazyColumn(
@@ -112,28 +107,31 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 👉 Botón para poblar datos de prueba
             item {
-                Button(
-                    onClick = { viewModel.seedData() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Cargar datos de prueba en Firestore")
-                }
-            }
-
-            item {
-                Section(title = "Listas destacadas", playlists = featuredPlaylists, onPlaylistClick = onPlaylistClick)
+                Section(
+                    title = "Listas destacadas",
+                    playlists = featuredPlaylists,
+                    onPlaylistClick = onPlaylistClick
+                )
             }
             item {
-                Section(title = "Recomendados para ti", playlists = recommendedPlaylists, onPlaylistClick = onPlaylistClick)
+                Section(
+                    title = "Recomendados para ti",
+                    playlists = recommendedPlaylists,
+                    onPlaylistClick = onPlaylistClick
+                )
             }
             item {
-                Section(title = "Lo que escuchas seguido", playlists = morePlaylists, onPlaylistClick = onPlaylistClick)
+                Section(
+                    title = "Lo que escuchas seguido",
+                    playlists = morePlaylists,
+                    onPlaylistClick = onPlaylistClick
+                )
             }
         }
     }
 }
+
 
 /* ---------------- Bottom Navigation ---------------- */
 @Composable

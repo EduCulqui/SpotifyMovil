@@ -1,18 +1,20 @@
+//
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("org.jetbrains.kotlin.kapt")
     id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.example.spotifyclone"
-    compileSdk = 36
+    compileSdk = 36  // 🔹 estable, no 36
 
     defaultConfig {
         applicationId = "com.example.spotifyclone"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 34 // 🔹 estable, no 36
         versionCode = 1
         versionName = "1.0"
 
@@ -53,10 +55,16 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material3) // ✅ solo una versión
     implementation("io.coil-kt:coil-compose:2.4.0")
-    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation(libs.androidx.foundation)
     implementation(libs.material3)
+    implementation(libs.androidx.runtime)
+    implementation(libs.androidx.media3.exoplayer)
+
+    // Room (solo si lo usas, y con kapt)
+    // kapt(libs.androidx.room.compiler)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,16 +73,24 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
-    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    // Retrofit (corrigiendo versiones)
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+
+    // ViewModel con Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
-    implementation ("androidx.compose.material:material-icons-extended")
 
+    // Iconos extendidos
+    implementation("androidx.compose.material:material-icons-extended")
 
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    annotationProcessor("androidx.room:room-compiler:2.6.1")
 }

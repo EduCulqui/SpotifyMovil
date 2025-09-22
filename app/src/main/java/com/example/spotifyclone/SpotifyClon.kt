@@ -20,6 +20,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.ui.graphics.Color
@@ -36,49 +39,152 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.xr.runtime.Config
+import com.example.spotifyclone.Compos.BuscarScreen
+import com.example.spotifyclone.Compos.ConfigScreen
+import com.example.spotifyclone.Compos.PerfilScreen
 import com.example.spotifyclone.Compos.PlaylistScreen
+import com.example.spotifyclone.Compos.PreferencesManager
+import com.example.spotifyclone.viewmodels.PlaylistViewModel
+import com.google.firebase.auth.FirebaseAuth
 
+//
 @OptIn(ExperimentalMaterial3Api::class)
 class SpotifyClon : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val auth = FirebaseAuth.getInstance()
+        val isLoggedIn = auth.currentUser != null  // 🔹 Verifica si hay usuario activo
+
         setContent {
             MaterialTheme {
-                SpotifyCloneApp()
+                SpotifyCloneApp(isLoggedIn)
             }
         }
     }
 }
 
-private enum class Screen { Login, Register, Home, Playlist }
+private enum class Screen { Login, Register, Home, Playlist, Buscar, Config, Perfil }
 
 @Composable
-private fun SpotifyCloneApp() {
-    var current by rememberSaveable { mutableStateOf(Screen.Login) }
+private fun SpotifyCloneApp(isLoggedIn: Boolean) {
+    // 🔹 Usar FirebaseAuth en vez de solo SharedPreferences
+    var current by rememberSaveable {
+        mutableStateOf(if (isLoggedIn) Screen.Home else Screen.Login)
+    }
 
-    // Guardamos la playlist seleccionada
     var selectedPlaylistId by rememberSaveable { mutableStateOf("") }
     var selectedPlaylistName by rememberSaveable { mutableStateOf("") }
+    val playlistVm: PlaylistViewModel = viewModel()
 
-    when (current) {
-        Screen.Login -> LoginScreen(
-            onLogin = { current = Screen.Home },
-            onGoRegister = { current = Screen.Register }
-        )
-        Screen.Register -> RegisterScreen(
-            onRegistered = { current = Screen.Login }
-        )
-        Screen.Home -> HomeScreen(
-            onPlaylistClick = { id, name ->
-                selectedPlaylistId = id
-                selectedPlaylistName = name
-                current = Screen.Playlist
+    LaunchedEffect(Unit) {
+        playlistVm.seedData()
+    }
+
+    Scaffold(
+        bottomBar = {
+            if (current == Screen.Home || current == Screen.Buscar) {
+                BottomNavigationBar(
+                    current = current,
+                    onNavigate = { current = it }
+                )
             }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            when (current) {
+                Screen.Login -> LoginScreen(
+                    onLogin = { current = Screen.Home },
+                    onGoRegister = { current = Screen.Register }
+                )
+                Screen.Register -> RegisterScreen(
+                    onRegistered = { current = Screen.Login }
+                )
+                Screen.Home -> HomeScreen(
+                    onPlaylistClick = { id, name ->
+                        selectedPlaylistId = id
+                        selectedPlaylistName = name
+                        current = Screen.Playlist
+                    },
+                    onConfigClick = { current = Screen.Config },
+                    onPerfilClick = { current = Screen.Perfil }
+                )
+                Screen.Playlist -> PlaylistScreen(
+                    playlistId = selectedPlaylistId,
+                    playlistName = selectedPlaylistName,
+                    onBack = { current = Screen.Home }
+                )
+                Screen.Buscar -> BuscarScreen(
+                    onBack = { current = Screen.Home }
+                )
+                Screen.Config -> ConfigScreen(
+                    onBack = { current = Screen.Home },
+                    onLogout = { current = Screen.Login },
+                    onGoPerfil = { current = Screen.Perfil }
+                )
+
+                Screen.Perfil -> PerfilScreen(
+                    onBack = { current = Screen.Config }
+                )
+            }
+        }
+    }
+}
+
+
+
+/* ---------------- Bottom Navigation ---------------- */
+@Composable
+private fun BottomNavigationBar(
+    current: Screen,
+    onNavigate: (Screen) -> Unit
+) {
+    NavigationBar(containerColor = Color.Black) {
+        // 👉 Inicio
+        NavigationBarItem(
+            selected = current == Screen.Home,
+            onClick = { onNavigate(Screen.Home) },
+            icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
+            label = { Text("Inicio") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color.White,
+                unselectedIconColor = Color.Gray,
+                selectedTextColor = Color.White,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color.DarkGray
+            )
         )
-        Screen.Playlist -> PlaylistScreen(
-            playlistId = selectedPlaylistId,
-            playlistName = selectedPlaylistName,
-            onBack = { current = Screen.Home }
+
+        // 👉 Buscar
+        NavigationBarItem(
+            selected = current == Screen.Buscar,
+            onClick = { onNavigate(Screen.Buscar) },
+            icon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
+            label = { Text("Buscar") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color.White,
+                unselectedIconColor = Color.Gray,
+                selectedTextColor = Color.White,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color.DarkGray
+            )
+        )
+
+        // 👉 Biblioteca (por ahora solo decorativo)
+        NavigationBarItem(
+            selected = false,
+            onClick = { /* TODO: implementar biblioteca */ },
+            icon = { Icon(Icons.Filled.LibraryMusic, contentDescription = "Biblioteca") },
+            label = { Text("Biblioteca") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color.White,
+                unselectedIconColor = Color.Gray,
+                selectedTextColor = Color.White,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color.DarkGray
+            )
         )
     }
 }
