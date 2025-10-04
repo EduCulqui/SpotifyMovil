@@ -55,12 +55,13 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3) // ✅ solo una versión
+    implementation(libs.androidx.material3)
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.androidx.foundation)
     implementation(libs.material3)
     implementation(libs.androidx.runtime)
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.compose.material3.material3)
 
     // Room (solo si lo usas, y con kapt)
     // kapt(libs.androidx.room.compiler)
