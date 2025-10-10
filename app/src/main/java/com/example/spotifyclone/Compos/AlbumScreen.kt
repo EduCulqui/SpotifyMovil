@@ -163,7 +163,7 @@ fun AlbumScreen(
     }
 }
 
-// 🔊 Ítem con efecto al presionar (escala + sombra)
+// Ítem con efecto al presionar (escala + sombra)
 @Composable
 private fun CancionItem(cancion: Cancion) {
     var isPressed by remember { mutableStateOf(false) }
@@ -244,7 +244,7 @@ private fun CancionItem(cancion: Cancion) {
     }
 }
 
-// ✨ Placeholder con efecto shimmer tipo Spotify
+// Placeholder con efecto shimmer tipo Spotify
 @Composable
 fun ShimmerPlaceholder() {
     val shimmerColors = listOf(
