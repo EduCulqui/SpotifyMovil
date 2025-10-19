@@ -98,32 +98,44 @@ data class PlaylistSong(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(
-    uid: String,
+    uid: String?, // ← Ahora puede ser nulo
     playlistId: String,
     name: String,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
     var canciones by remember { mutableStateOf<List<PlaylistSong>>(emptyList()) }
-    var showDeleteDialog by remember { mutableStateOf<PlaylistSong?>(null) } // Canción a eliminar
+    var showDeleteDialog by remember { mutableStateOf<PlaylistSong?>(null) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Escuchar cambios en la playlist
-    LaunchedEffect(playlistId) {
+    // ✅ Validar UID antes de usarlo
+    LaunchedEffect(uid, playlistId) {
+        if (uid.isNullOrBlank()) {
+            Toast.makeText(context, "Usuario no encontrado o ID inválido", Toast.LENGTH_LONG).show()
+            return@LaunchedEffect
+        }
+
         db.collection("usuarios").document(uid)
             .collection("playlists").document(playlistId)
             .collection("canciones")
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Toast.makeText(context, "Error al cargar playlist", Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
+                }
+
                 if (snapshot != null) {
                     canciones = snapshot.documents.mapNotNull { doc ->
                         doc.toObject(PlaylistSong::class.java)?.copy(id = doc.id)
                     }
+                } else {
+                    canciones = emptyList()
                 }
             }
     }
 
-    // Fondo y animación
     val backgroundBrush = Brush.verticalGradient(
         colors = listOf(Color(0xFF121212), Color(0xFF000000))
     )
@@ -184,6 +196,14 @@ fun PlaylistScreen(
                 .padding(16.dp)
                 .alpha(alphaAnim)
         ) {
+            if (uid.isNullOrBlank()) {
+                // ⚠️ Mostrar mensaje si no hay UID
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No se pudo cargar esta playlist (usuario inválido)", color = Color.Gray)
+                }
+                return@Column
+            }
+
             Text("Playlist: $name", color = Color.White, fontSize = 22.sp)
             Spacer(Modifier.height(16.dp))
 
@@ -220,7 +240,7 @@ fun PlaylistScreen(
                                     )
                                 }
 
-                                // Menú con opciones
+                                // Menú de opciones
                                 Box {
                                     IconButton(onClick = { expanded = true }) {
                                         Icon(
@@ -250,25 +270,21 @@ fun PlaylistScreen(
         }
     }
 
-    // Diálogo de confirmación
+    // Diálogo para eliminar canción
     if (showDeleteDialog != null) {
         val cancion = showDeleteDialog!!
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             confirmButton = {
                 TextButton(onClick = {
-                    // Eliminar canción en Firestore
-                    db.collection("usuarios").document(uid)
-                        .collection("playlists").document(playlistId)
-                        .collection("canciones").document(cancion.id)
-                        .delete()
-                    showDeleteDialog = null
-
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            "Canción eliminada correctamente"
-                        )
+                    if (!uid.isNullOrBlank()) {
+                        db.collection("usuarios").document(uid)
+                            .collection("playlists").document(playlistId)
+                            .collection("canciones").document(cancion.id)
+                            .delete()
                     }
+                    showDeleteDialog = null
+                    scope.launch { snackbarHostState.showSnackbar("Canción eliminada correctamente") }
                 }) {
                     Text("Eliminar", color = Color.Red)
                 }
@@ -290,3 +306,4 @@ fun PlaylistScreen(
         )
     }
 }
+

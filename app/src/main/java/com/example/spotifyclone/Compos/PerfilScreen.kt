@@ -1,94 +1,77 @@
 package com.example.spotifyclone.Compos
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
+import com.tuapp.spotifyclone.viewmodel.UserViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PerfilScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onBuscarUsuarios: () -> Unit,
+    onVerSeguidores: () -> Unit,
+    onVerSiguiendo: () -> Unit,
+    viewModel: UserViewModel = viewModel()
 ) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     val auth = FirebaseAuth.getInstance()
-    val db = FirebaseFirestore.getInstance()
 
-    var nombre by remember { mutableStateOf("") }
-    var apellido by remember { mutableStateOf("") }
-    var correo by remember { mutableStateOf("") }
-    var cargando by remember { mutableStateOf(true) }
+    // ✅ nombre correcto: usuarioActual
+    val miUsuario = viewModel.usuarioActual.collectAsState(initial = null).value
 
-    // 🔹 Cargar datos del usuario desde Firestore usando coroutines
-    LaunchedEffect(Unit) {
-        val uid = auth.currentUser?.uid
+    val uid = auth.currentUser?.uid
+
+    // ✅ método correcto: cargarUsuarioActual
+    LaunchedEffect(uid) {
         if (uid != null) {
-            try {
-                val snapshot = db.collection("usuarios").document(uid).get().await()
-                nombre = snapshot.getString("nombre") ?: ""
-                apellido = snapshot.getString("apellido") ?: ""
-                correo = snapshot.getString("correo") ?: auth.currentUser?.email.orEmpty()
-            } catch (e: Exception) {
-                Toast.makeText(ctx, "Error al obtener datos: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                cargando = false
-            }
+            viewModel.cargarUsuarioActual(uid)
         } else {
-            cargando = false
+            Toast.makeText(ctx, "Error: usuario no autenticado", Toast.LENGTH_SHORT).show()
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Perfil") },
+                title = { Text("Perfil", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1DB954) // verde estilo Spotify
+                    containerColor = Color(0xFF1DB954)
                 )
             )
         },
-        containerColor = Color.Black // fondo principal oscuro
+        containerColor = Color.Black
     ) { padding ->
         Box(
             modifier = Modifier
@@ -96,17 +79,16 @@ fun PerfilScreen(
                 .padding(padding),
             contentAlignment = Alignment.Center
         ) {
-            if (cargando) {
-                CircularProgressIndicator(
-                    color = Color(0xFF1DB954),
-                    strokeWidth = 4.dp
-                )
+            if (miUsuario == null) {
+                CircularProgressIndicator(color = Color(0xFF1DB954))
             } else {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(24.dp)
+                        .shadow(8.dp, RoundedCornerShape(16.dp))
                         .background(
                             brush = Brush.verticalGradient(
                                 colors = listOf(Color(0xFF121212), Color(0xFF1A1A1A))
@@ -114,9 +96,8 @@ fun PerfilScreen(
                             shape = RoundedCornerShape(16.dp)
                         )
                         .padding(24.dp)
-                        .shadow(8.dp, RoundedCornerShape(16.dp))
                 ) {
-                    // 🔹 Avatar con sombra y efecto glow
+                    // 🔹 Foto de perfil
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -128,29 +109,73 @@ fun PerfilScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.AccountCircle,
-                            contentDescription = "Perfil",
-                            modifier = Modifier.size(100.dp),
-                            tint = Color.White
+                        Image(
+                            painter = rememberAsyncImagePainter(model = miUsuario?.fotoPerfil ?: ""),
+                            contentDescription = "Foto perfil",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
                         )
                     }
 
+                    // 🔹 Datos del usuario
                     Text(
-                        "Nombre: $nombre",
+                        text = "${miUsuario?.nombre ?: ""} ${miUsuario?.apellido ?: ""}".trim(),
                         style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
                     )
                     Text(
-                        "Apellido: $apellido",
-                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
-                    )
-                    Text(
-                        "Correo: $correo",
+                        text = miUsuario?.email ?: "",
                         style = MaterialTheme.typography.bodyMedium.copy(color = Color.LightGray)
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 🔹 Contadores de seguidores / siguiendo
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { onVerSeguidores() }
+                        ) {
+                            Text(
+                                text = "${miUsuario?.seguidores?.size ?: 0}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text("Seguidores", color = Color.Gray)
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { onVerSiguiendo() }
+                        ) {
+                            Text(
+                                text = "${miUsuario?.siguiendo?.size ?: 0}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text("Siguiendo", color = Color.Gray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 🔹 Botón para buscar otros usuarios
+                    Button(
+                        onClick = onBuscarUsuarios,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
+                    ) {
+                        Icon(Icons.Default.PersonSearch, contentDescription = "Buscar usuarios")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Buscar otros usuarios")
+                    }
                 }
             }
         }
     }
 }
-

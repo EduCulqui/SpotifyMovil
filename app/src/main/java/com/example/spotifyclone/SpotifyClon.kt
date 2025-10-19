@@ -20,12 +20,18 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.spotifyclone.Compos.AlbumScreen
 import com.example.spotifyclone.Compos.BuscarScreen
+import com.example.spotifyclone.Compos.BuscarUsuariosScreen
 import com.example.spotifyclone.Compos.ConfigScreen
 import com.example.spotifyclone.Compos.LibraryScreen
+import com.example.spotifyclone.Compos.ListaUsuariosScreen
 import com.example.spotifyclone.Compos.PerfilScreen
 import com.example.spotifyclone.Compos.PlaylistScreen
+import com.example.spotifyclone.Compos.PlaylistsUsuarioScreen
+import com.example.spotifyclone.repository.UserRepository
 import com.example.spotifyclone.viewmodels.AlbumViewModel
+import com.example.spotifyclone.viewmodels.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
+import com.tuapp.spotifyclone.viewmodel.UserViewModel
 
 //
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +50,7 @@ class SpotifyClon : ComponentActivity() {
     }
 }
 
-private enum class Screen { Login, Register, Home, Album, Buscar, Config, Perfil, Biblioteca, Playlist    }
+private enum class Screen { Login, Register, Home, Album, Buscar, Config, Perfil, Biblioteca, Playlist,BuscarUsuarios, PlaylistsUsuario, ListaSeguidores, ListaSiguiendo }
 
 
 @Composable
@@ -60,6 +66,21 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
 
     val selectedPlaylistId = remember { mutableStateOf("") }
     val selectedPlaylistName = remember { mutableStateOf("") }
+    val selectedPlaylistOwnerId = remember { mutableStateOf("") }
+
+    val userViewModel: UserViewModel = viewModel(
+        factory = UserViewModelFactory(UserRepository())
+    )
+    val miUsuario by userViewModel.usuarioActual.collectAsState(initial = null)
+
+    LaunchedEffect(Unit) {
+        val miId = FirebaseAuth.getInstance().currentUser?.uid
+        if (miId != null) {
+            userViewModel.cargarUsuarioActual(miId)
+        }
+    }
+
+
 
     LaunchedEffect(Unit) {
         albumVm.seedData()
@@ -113,9 +134,11 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
                 )
 
                 Screen.Perfil -> PerfilScreen(
-                    onBack = { current = Screen.Config }
+                    onBack = { current = Screen.Config },
+                    onBuscarUsuarios = { current = Screen.BuscarUsuarios },
+                    onVerSeguidores = { current = Screen.ListaSeguidores },
+                    onVerSiguiendo = { current = Screen.ListaSiguiendo }
                 )
-
                 Screen.Biblioteca -> LibraryScreen(
                     onBack = { current = Screen.Home },
                     onOpenPlaylist = { id, name ->
@@ -132,6 +155,91 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
                     name = selectedPlaylistName.value,
                     onBack = { current = Screen.Biblioteca }
                 )
+
+                Screen.BuscarUsuarios -> BuscarUsuariosScreen(
+                    miId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
+                    onBack = { current = Screen.Perfil }, // 🔹 agrega esto para volver a la pantalla anterior
+                    onVerPlaylists = { userId ->
+                        selectedPlaylistOwnerId.value = userId
+                        current = Screen.PlaylistsUsuario
+                    }
+                )
+
+                Screen.PlaylistsUsuario -> PlaylistsUsuarioScreen(
+                    userId = selectedPlaylistOwnerId.value,
+                    onBack = { current = Screen.BuscarUsuarios },
+                    onAbrirPlaylist = { playlistId, nombre ->
+                        selectedPlaylistId.value = playlistId
+                        selectedPlaylistName.value = nombre
+                        current = Screen.Playlist
+                    }
+                )
+
+                Screen.Playlist -> PlaylistScreen(
+                    uid = selectedPlaylistOwnerId.value.ifEmpty {
+                        FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    },
+                    playlistId = selectedPlaylistId.value,
+                    name = selectedPlaylistName.value,
+                    onBack = {
+                        current = if (selectedPlaylistOwnerId.value.isEmpty())
+                            Screen.Biblioteca
+                        else
+                            Screen.PlaylistsUsuario
+                    }
+                )
+                Screen.PlaylistsUsuario -> PlaylistsUsuarioScreen(
+                    userId = selectedPlaylistOwnerId.value,
+                    onBack = { current = Screen.BuscarUsuarios },
+                    onAbrirPlaylist = { playlistId, nombre ->
+                        selectedPlaylistId.value = playlistId
+                        selectedPlaylistName.value = nombre
+                        current = Screen.Playlist
+                    }
+                )
+
+                // ✅ Solo este PlaylistScreen queda, elimina el anterior duplicado
+                Screen.Playlist -> PlaylistScreen(
+                    uid = selectedPlaylistOwnerId.value.ifEmpty {
+                        FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    },
+                    playlistId = selectedPlaylistId.value,
+                    name = selectedPlaylistName.value,
+                    onBack = {
+                        current = if (selectedPlaylistOwnerId.value.isEmpty())
+                            Screen.Biblioteca
+                        else
+                            Screen.PlaylistsUsuario
+                    }
+                )
+
+                Screen.ListaSeguidores -> {
+                    ListaUsuariosScreen(
+                        userIds = miUsuario?.seguidores ?: emptyList(),
+                        titulo = "Seguidores",
+                        onBack = { current = Screen.Perfil },
+                        onUsuarioClick = { userId ->
+                            selectedPlaylistOwnerId.value = userId
+                            current = Screen.PlaylistsUsuario
+                        },
+                        viewModel = userViewModel
+                    )
+                }
+
+                Screen.ListaSiguiendo -> {
+                    ListaUsuariosScreen(
+                        userIds = miUsuario?.siguiendo ?: emptyList(),
+                        titulo = "Siguiendo",
+                        onBack = { current = Screen.Perfil },
+                        onUsuarioClick = { userId ->
+                            selectedPlaylistOwnerId.value = userId
+                            current = Screen.PlaylistsUsuario
+                        },
+                        viewModel = userViewModel
+                    )
+                }
+
+
             }
 
         }

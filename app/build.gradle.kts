@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.runtime)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.foundation.layout)
+    implementation(libs.foundation)
 
     // Room (solo si lo usas, y con kapt)
     // kapt(libs.androidx.room.compiler)
