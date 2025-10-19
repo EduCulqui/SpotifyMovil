@@ -91,7 +91,8 @@ import kotlinx.coroutines.launch
 data class PlaylistSong(
     val id: String = "",
     val titulo: String = "",
-    val artista: String = ""
+    val artista: String = "",
+    val audioUrl: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

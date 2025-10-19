@@ -60,6 +60,17 @@ import androidx.compose.ui.unit.dp
 import com.example.spotifyclone.entities.Cancion
 import com.example.spotifyclone.viewmodels.AlbumViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.widget.Toast
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,15 +82,18 @@ fun AlbumScreen(
 ) {
     val canciones by viewModel.canciones
     val isLoading by viewModel.isLoading
+    val ctx = LocalContext.current
 
-    // Efecto de carga automática al cambiar de álbum
+    val isPlaying by AudioPlayerManager.isPlaying.collectAsState()
+    val currentIndex by AudioPlayerManager.currentIndexFlow.collectAsState()
+    val currentPlaylist by AudioPlayerManager.currentPlaylistFlow.collectAsState()
+
     LaunchedEffect(albumId) {
         if (albumId.isNotBlank()) {
             viewModel.cargarCanciones(albumId)
         }
     }
 
-    // Animación de entrada de pantalla (fade in)
     val alphaAnim = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         alphaAnim.animateTo(
@@ -90,23 +104,11 @@ fun AlbumScreen(
 
     Scaffold(
         topBar = {
-            // Top bar con efecto de scroll tipo Spotify
             CenterAlignedTopAppBar(
                 title = {
-                    var offsetY by remember { mutableStateOf(0f) }
-                    val animatedOffset by animateFloatAsState(
-                        targetValue = offsetY,
-                        animationSpec = tween(300)
-                    )
                     Text(
                         text = albumName,
-                        modifier = Modifier.graphicsLayer {
-                            translationY = -animatedOffset / 5
-                            alpha = 1f - (animatedOffset / 400f).coerceIn(0f, 1f)
-                        },
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        )
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
@@ -117,6 +119,7 @@ fun AlbumScreen(
             )
         }
     ) { padding ->
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -126,7 +129,6 @@ fun AlbumScreen(
         ) {
             when {
                 isLoading -> {
-                    // Efecto shimmer durante la carga
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
@@ -148,14 +150,46 @@ fun AlbumScreen(
                 }
 
                 else -> {
-                    // Lista animada
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
+                    val urls = canciones.map { it.audioUrl }
+                    val titles = canciones.map { it.titulo }
+
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        items(canciones) { cancion ->
-                            CancionItem(cancion)
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            itemsIndexed(canciones) { index, cancion ->
+                                val isCurrentSong = currentPlaylist == albumId && currentIndex == index
+
+                                CancionItem(
+                                    cancion = cancion,
+                                    index = index,
+                                    isPlaying = isCurrentSong && isPlaying,
+                                    onPlayClick = {
+                                        if (cancion.audioUrl.isNotBlank()) {
+                                            if (isCurrentSong) {
+                                                AudioPlayerManager.playPause()
+                                            } else {
+                                                AudioPlayerManager.setPlaylist(
+                                                    ctx,
+                                                    urls,
+                                                    titles,
+                                                    startIndex = index,
+                                                    playlistId = albumId
+                                                )
+                                            }
+                                        } else {
+                                            Toast.makeText(ctx, "Sin audio disponible", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
                         }
+
+                        PlayerControls()
                     }
                 }
             }
@@ -163,86 +197,61 @@ fun AlbumScreen(
     }
 }
 
+
+
 // Ítem con efecto al presionar (escala + sombra)
 @Composable
-private fun CancionItem(cancion: Cancion) {
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isPressed) 0.97f else 1f)
-
+fun CancionItem(
+    cancion: Cancion,
+    index: Int,
+    isPlaying: Boolean = false,
+    onPlayClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .shadow(elevation = 8.dp, shape = MaterialTheme.shapes.medium)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        try {
-                            awaitRelease()
-                        } finally {
-                            isPressed = false
-                        }
-                    },
-                    onTap = {
-                        // Acción al tocar, por ejemplo reproducir canción
-                        println("Reproducir ${cancion.titulo}")
-                    }
-                )
-            },
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Ícono de play con animación
-            val playAnim by rememberInfiniteTransition().animateFloat(
-                initialValue = 1f,
-                targetValue = 1.2f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(800, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.graphicsLayer(
-                    scaleX = playAnim,
-                    scaleY = playAnim
-                )
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            // 🎵 Título y artista
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = cancion.titulo,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
                     text = cancion.artista,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+
+            // ▶️ / ⏸️ Botón de reproducción sincronizado con AudioPlayerManager
+            IconButton(onClick = onPlayClick) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                    tint = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Gray,
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
     }
 }
+
+
+
+
 
 // Placeholder con efecto shimmer tipo Spotify
 @Composable
@@ -275,3 +284,62 @@ fun ShimmerPlaceholder() {
             .background(brush, shape = RoundedCornerShape(8.dp))
     )
 }
+
+@Composable
+fun PlayerControls() {
+    val ctx = LocalContext.current
+    var isPlaying by remember { mutableStateOf(true) }
+    var isShuffle by remember { mutableStateOf(false) }
+    var isRepeat by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = {
+            AudioPlayerManager.toggleShuffle()
+            isShuffle = !isShuffle
+        }) {
+            Icon(
+                imageVector = Icons.Default.Shuffle,
+                contentDescription = "Aleatorio",
+                tint = if (isShuffle) MaterialTheme.colorScheme.primary else Color.Gray
+            )
+        }
+
+        IconButton(onClick = { AudioPlayerManager.previous() }) {
+            Icon(Icons.Default.SkipPrevious, contentDescription = "Anterior")
+        }
+
+        IconButton(onClick = {
+            AudioPlayerManager.playPause()
+            isPlaying = !isPlaying
+        }) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = "Play/Pause",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+
+        IconButton(onClick = { AudioPlayerManager.next() }) {
+            Icon(Icons.Default.SkipNext, contentDescription = "Siguiente")
+        }
+
+        IconButton(onClick = {
+            AudioPlayerManager.toggleRepeat()
+            isRepeat = !isRepeat
+        }) {
+            Icon(
+                imageVector = Icons.Default.Repeat,
+                contentDescription = "Repetir",
+                tint = if (isRepeat) MaterialTheme.colorScheme.primary else Color.Gray
+            )
+        }
+    }
+}
+

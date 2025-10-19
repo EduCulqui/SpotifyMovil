@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,7 +17,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,10 +29,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // ✅ AGREGA ESTA LÍNEA
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.spotifyclone.viewmodels.AlbumViewModel
+
 
 //
 /* ---------------- HOME ---------------- */
@@ -73,6 +86,12 @@ fun HomeScreen(
         Triple("rap", "Rap", "https://i.postimg.cc/qB5zbFqH/rap.jpg")
     )
 
+    // 🔊 Estados observables del AudioPlayerManager
+    val isPlaying by AudioPlayerManager.isPlaying.collectAsState()
+    val currentTitle by AudioPlayerManager.currentTitle.collectAsState()
+    var showNowPlaying by remember { mutableStateOf(false) }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -89,12 +108,70 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
             )
+        },
+        bottomBar = {
+            if (currentTitle.isNotEmpty()) {
+                Surface(
+                    color = Color.Black, // 🔥 Fondo negro puro
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .clickable {
+                            showNowPlaying = true // 👉 Abre la pantalla completa
+                        }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        // 🎵 Título de la canción
+                        Text(
+                            text = currentTitle,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // 🎛 Controles del reproductor
+                        Row {
+                            IconButton(onClick = { AudioPlayerManager.previous() }) {
+                                Icon(
+                                    Icons.Default.SkipPrevious,
+                                    contentDescription = "Anterior",
+                                    tint = Color.White
+                                )
+                            }
+                            IconButton(onClick = { AudioPlayerManager.playPause() }) {
+                                Icon(
+                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = "Play/Pause",
+                                    tint = Color.White
+                                )
+                            }
+                            IconButton(onClick = { AudioPlayerManager.next() }) {
+                                Icon(
+                                    Icons.Default.SkipNext,
+                                    contentDescription = "Siguiente",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
+
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF121212)) // fondo oscuro tipo Spotify
+                .background(Color(0xFF121212))
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -122,6 +199,17 @@ fun HomeScreen(
             }
         }
     }
+    if (showNowPlaying) {
+        NowPlayingScreen(
+            onBack = { showNowPlaying = false },
+            onCloseApp = {
+                AudioPlayerManager.stop()
+                AudioPlayerManager.clearCurrentSong() // ← función para limpiar el título
+                showNowPlaying = false                // ← cierra la pantalla completa
+            }
+        )
+    }
+
 }
 
 /* ---------------- SECCIÓN REUTILIZABLE ---------------- */

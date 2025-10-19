@@ -63,6 +63,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.compose.material3.material3)
     implementation(libs.ui)
+    implementation(libs.runtime)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.foundation.layout)
 
     // Room (solo si lo usas, y con kapt)
     // kapt(libs.androidx.room.compiler)
@@ -95,4 +98,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     annotationProcessor("androidx.room:room-compiler:2.6.1")
+
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
 }
