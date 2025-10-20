@@ -1,5 +1,7 @@
 package com.example.spotifyclone.repository
 
+import com.example.spotifyclone.entities.Cancion
+import com.example.spotifyclone.entities.Playlist
 import com.example.spotifyclone.entities.Usuario
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -58,6 +60,7 @@ class UserRepository {
 
     // 🔹 Seguir a un usuario
     suspend fun seguirUsuario(idActual: String, idOtro: String) {
+        if (idActual == idOtro) return // Evita seguirse a sí mismo
         val usuarioActualRef = usuariosRef.document(idActual)
         val otroUsuarioRef = usuariosRef.document(idOtro)
 
@@ -98,20 +101,48 @@ class UserRepository {
     }
 
     // 🔹 Obtener todas las playlists de un usuario
-    suspend fun obtenerPlaylistsDeUsuario(userId: String): List<Map<String, Any>> {
+    // 🔹 Obtener todas las playlists de un usuario (estructura anidada en usuarios/{uid}/playlists)
+    // 🔹 Obtener todas las playlists de un usuario
+    suspend fun obtenerPlaylistsDeUsuario(userId: String): List<Playlist> {
         return try {
-            val snapshot = db.collection("playlists")
-                .whereEqualTo("usuarioId", userId)
+            val snapshot = db.collection("usuarios")
+                .document(userId)
+                .collection("playlists")
                 .get()
                 .await()
 
             snapshot.documents.mapNotNull { doc ->
-                val data = doc.data ?: return@mapNotNull null
-                data + ("id" to doc.id)
+                val name = doc.getString("name") ?: "Sin nombre"
+                Playlist(
+                    id = doc.id,
+                    name = name
+                )
             }
         } catch (e: Exception) {
             emptyList()
         }
     }
+    // 🔹 Obtener canciones de una playlist de un usuario
+    suspend fun obtenerCancionesDePlaylist(userId: String, playlistId: String): List<Cancion> {
+        return try {
+            val snapshot = db.collection("usuarios")
+                .document(userId)
+                .collection("playlists")
+                .document(playlistId)
+                .collection("canciones")
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Cancion::class.java)?.copy(id = doc.id)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+
+
 
 }

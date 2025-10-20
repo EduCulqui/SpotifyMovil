@@ -14,27 +14,29 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.spotifyclone.entities.Playlist
+import com.example.spotifyclone.entities.Cancion
 import com.example.spotifyclone.repository.UserRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlaylistsUsuarioScreen(
+fun PlaylistDetalleScreen(
     userId: String,
-    onBack: () -> Unit,
-    onAbrirPlaylist: (String, String) -> Unit // playlistId, nombre
+    playlistId: String,
+    playlistNombre: String,
+    onBack: () -> Unit
 ) {
     val repo = UserRepository()
-    var playlists by remember { mutableStateOf(emptyList<Playlist>()) }
+    var canciones by remember { mutableStateOf(emptyList<Cancion>()) }
 
-    LaunchedEffect(userId) {
-        playlists = repo.obtenerPlaylistsDeUsuario(userId)
+    // 🔹 Carga las canciones de Firestore al abrir la pantalla
+    LaunchedEffect(playlistId) {
+        canciones = repo.obtenerCancionesDePlaylist(userId, playlistId)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Playlists del usuario") },
+                title = { Text(playlistNombre) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
@@ -49,9 +51,9 @@ fun PlaylistsUsuarioScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            // 🔹 Efecto de carga con animación
+            // 🎧 Loader con animación
             AnimatedVisibility(
-                visible = playlists.isEmpty(),
+                visible = canciones.isEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
@@ -68,36 +70,37 @@ fun PlaylistsUsuarioScreen(
                 }
             }
 
-            // 🔹 Lista animada de playlists
+            // 🎶 Lista de canciones con efecto
             AnimatedVisibility(
-                visible = playlists.isNotEmpty(),
+                visible = canciones.isNotEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(playlists) { playlist ->
+                    items(canciones) { cancion ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
-                                    onAbrirPlaylist(playlist.id, playlist.name)
-                                },
-                            elevation = CardDefaults.cardElevation(4.dp)
+                                .clickable { /* Aquí podrías reproducir la canción o mostrar detalles */ },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            elevation = CardDefaults.cardElevation(3.dp)
                         ) {
-                            Column(Modifier.padding(12.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(14.dp)
+                            ) {
                                 Text(
-                                    playlist.name,
+                                    text = cancion.titulo,
                                     style = MaterialTheme.typography.titleMedium
                                 )
-                                if (playlist.canciones.isNotEmpty()) {
-                                    Text(
-                                        "${playlist.canciones.size} canciones",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
+                                Text(
+                                    text = cancion.artista,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                         }
                     }
@@ -106,3 +109,4 @@ fun PlaylistsUsuarioScreen(
         }
     }
 }
+

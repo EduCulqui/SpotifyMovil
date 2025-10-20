@@ -1,87 +1,31 @@
 package com.example.spotifyclone.Compos
 
 import android.widget.Toast
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.spotifyclone.viewmodels.AlbumViewModel
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
 
-
-// Data class para canciones de la playlist
+// 🔹 Modelo de canción de playlist
 data class PlaylistSong(
     val id: String = "",
     val titulo: String = "",
@@ -92,7 +36,7 @@ data class PlaylistSong(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(
-    uid: String?, // ← Ahora puede ser nulo
+    uid: String?,
     playlistId: String,
     name: String,
     onBack: () -> Unit
@@ -100,185 +44,178 @@ fun PlaylistScreen(
     val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
     var canciones by remember { mutableStateOf<List<PlaylistSong>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var showDeleteDialog by remember { mutableStateOf<PlaylistSong?>(null) }
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    // ✅ Validar UID antes de usarlo
+    val isPlaying by AudioPlayerManager.isPlaying.collectAsState()
+    val currentIndex by AudioPlayerManager.currentIndexFlow.collectAsState()
+    val currentPlaylist by AudioPlayerManager.currentPlaylistFlow.collectAsState()
+
+    // 🔄 Cargar canciones de Firestore en tiempo real
     LaunchedEffect(uid, playlistId) {
         if (uid.isNullOrBlank()) {
-            Toast.makeText(context, "Usuario no encontrado o ID inválido", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Usuario no encontrado", Toast.LENGTH_SHORT).show()
             return@LaunchedEffect
         }
 
         db.collection("usuarios").document(uid)
             .collection("playlists").document(playlistId)
             .collection("canciones")
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener { snapshot: QuerySnapshot?, error: FirebaseFirestoreException? ->
+                isLoading = false
                 if (error != null) {
                     Toast.makeText(context, "Error al cargar playlist", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
-
-                if (snapshot != null) {
-                    canciones = snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(PlaylistSong::class.java)?.copy(id = doc.id)
-                    }
-                } else {
-                    canciones = emptyList()
-                }
+                canciones = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(PlaylistSong::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
             }
     }
 
-    val backgroundBrush = Brush.verticalGradient(
-        colors = listOf(Color(0xFF121212), Color(0xFF000000))
-    )
-    val alphaAnim by animateFloatAsState(
-        targetValue = if (canciones.isEmpty()) 0.7f else 1f,
-        animationSpec = tween(durationMillis = 1000)
+    val gradient = Brush.verticalGradient(
+        listOf(Color(0xFF1DB954), Color(0xFF121212))
     )
 
     Scaffold(
         topBar = {
-            val gradientBrush = Brush.horizontalGradient(
-                colors = listOf(Color(0xFF1DB954), Color(0xFF121212))
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Black
+                )
             )
-            Surface(shadowElevation = 8.dp, color = Color.Transparent) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(gradientBrush)
-                        .padding(vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+        },
+        containerColor = Color(0xFF121212)
+    ) { padding ->
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(gradient)
+                .padding(16.dp)
+        ) {
+            when {
+                isLoading -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = "Atrás",
-                                tint = Color.White
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                name,
-                                color = Color.White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Tu lista personalizada",
-                                color = Color.LightGray,
-                                fontSize = 14.sp
-                            )
-                        }
+                        CircularProgressIndicator(color = Color(0xFF1DB954))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Cargando playlist...", color = Color.Gray)
                     }
                 }
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(brush = backgroundBrush)
-                .padding(16.dp)
-                .alpha(alphaAnim)
-        ) {
-            if (uid.isNullOrBlank()) {
-                // ⚠️ Mostrar mensaje si no hay UID
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No se pudo cargar esta playlist (usuario inválido)", color = Color.Gray)
+
+                canciones.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "No hay canciones en esta playlist",
+                            color = Color.Gray
+                        )
+                    }
                 }
-                return@Column
-            }
 
-            Text("Playlist: $name", color = Color.White, fontSize = 22.sp)
-            Spacer(Modifier.height(16.dp))
+                else -> {
+                    val urls = canciones.map { it.audioUrl }
+                    val titles = canciones.map { it.titulo }
 
-            if (canciones.isEmpty()) {
-                Text("No hay canciones en esta playlist", color = Color.Gray)
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(canciones) { cancion ->
-                        var expanded by remember { mutableStateOf(false) }
-
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF181818)),
-                            elevation = CardDefaults.cardElevation(4.dp)
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // 🔊 Reproducir toda la playlist
+                        Button(
+                            onClick = {
+                                if (urls.isNotEmpty()) {
+                                    AudioPlayerManager.setPlaylist(
+                                        context = context,
+                                        urls = urls,
+                                        songTitles = titles,
+                                        startIndex = 0,
+                                        playlistId = playlistId
+                                    )
+                                    Toast.makeText(context, "Reproduciendo playlist...", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        cancion.titulo,
-                                        color = Color.White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        cancion.artista,
-                                        color = Color(0xFFB3B3B3),
-                                        fontSize = 14.sp
-                                    )
-                                }
+                            Text("Reproducir Playlist", color = Color.White)
+                        }
 
-                                // Menú de opciones
-                                Box {
-                                    IconButton(onClick = { expanded = true }) {
-                                        Icon(
-                                            Icons.Default.MoreVert,
-                                            contentDescription = "Opciones",
-                                            tint = Color.White
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Eliminar canción") },
-                                            onClick = {
-                                                expanded = false
-                                                showDeleteDialog = cancion
+                        Spacer(Modifier.height(16.dp))
+
+                        // 🎵 Lista de canciones
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            itemsIndexed(canciones) { index, cancion ->
+                                val isCurrentSong = currentPlaylist == playlistId && currentIndex == index
+
+                                CancionPlaylistItem(
+                                    cancion = cancion,
+                                    isPlaying = isCurrentSong && isPlaying,
+                                    onPlayClick = {
+                                        if (cancion.audioUrl.isNotBlank()) {
+                                            if (isCurrentSong) {
+                                                AudioPlayerManager.playPause()
+                                            } else {
+                                                AudioPlayerManager.setPlaylist(
+                                                    context,
+                                                    urls,
+                                                    titles,
+                                                    startIndex = index,
+                                                    playlistId = playlistId
+                                                )
                                             }
-                                        )
-                                    }
-                                }
+                                        } else {
+                                            Toast.makeText(context, "Sin audio disponible", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onDeleteClick = { showDeleteDialog = cancion }
+                                )
                             }
                         }
+
+                        PlayerControls() // 🎚️ Controles de reproducción al final
                     }
                 }
             }
         }
     }
 
-    // Diálogo para eliminar canción
-    if (showDeleteDialog != null) {
+    // 🗑️ Diálogo de eliminar canción
+    if (showDeleteDialog != null && uid != null) {
         val cancion = showDeleteDialog!!
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             confirmButton = {
                 TextButton(onClick = {
-                    if (!uid.isNullOrBlank()) {
-                        db.collection("usuarios").document(uid)
-                            .collection("playlists").document(playlistId)
-                            .collection("canciones").document(cancion.id)
-                            .delete()
-                    }
+                    FirebaseFirestore.getInstance()
+                        .collection("usuarios").document(uid)
+                        .collection("playlists").document(playlistId)
+                        .collection("canciones").document(cancion.id)
+                        .delete()
                     showDeleteDialog = null
-                    scope.launch { snackbarHostState.showSnackbar("Canción eliminada correctamente") }
+                    Toast.makeText(context, "Canción eliminada", Toast.LENGTH_SHORT).show()
                 }) {
                     Text("Eliminar", color = Color.Red)
                 }
@@ -289,15 +226,71 @@ fun PlaylistScreen(
                 }
             },
             title = { Text("Eliminar canción", color = Color.White) },
-            text = {
-                Text(
-                    "¿Deseas eliminar \"${cancion.titulo}\" de la playlist?",
-                    color = Color.LightGray
-                )
-            },
-            containerColor = Color(0xFF1E1E1E),
-            shape = RoundedCornerShape(12.dp)
+            text = { Text("¿Deseas eliminar \"${cancion.titulo}\"?", color = Color.Gray) },
+            containerColor = Color(0xFF1E1E1E)
         )
     }
 }
 
+// 🎵 Ítem de canción con botones
+@Composable
+fun CancionPlaylistItem(
+    cancion: PlaylistSong,
+    isPlaying: Boolean,
+    onPlayClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181818)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    cancion.titulo,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    cancion.artista,
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onPlayClick) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = if (isPlaying) Color(0xFF1DB954) else Color.White
+                    )
+                }
+
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = Color.White)
+                }
+
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Eliminar canción") },
+                        onClick = {
+                            expanded = false
+                            onDeleteClick()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}

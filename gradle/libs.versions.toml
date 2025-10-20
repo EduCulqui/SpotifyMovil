@@ -23,6 +23,7 @@ runtimeVersion = "1.9.3"
 navigationCompose = "2.9.5"
 foundationLayout = "1.9.3"
 foundationVersion = "1.9.3"
+animation = "1.9.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,6 +55,7 @@ runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = 
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
+androidx-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

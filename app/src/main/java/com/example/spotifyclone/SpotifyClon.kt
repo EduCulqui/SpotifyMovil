@@ -28,6 +28,7 @@ import com.example.spotifyclone.Compos.ConfigScreen
 import com.example.spotifyclone.Compos.LibraryScreen
 import com.example.spotifyclone.Compos.ListaUsuariosScreen
 import com.example.spotifyclone.Compos.PerfilScreen
+import com.example.spotifyclone.Compos.PlaylistDetalleScreen
 import com.example.spotifyclone.Compos.PlaylistScreen
 import com.example.spotifyclone.Compos.PlaylistsUsuarioScreen
 import com.example.spotifyclone.repository.UserRepository
@@ -53,7 +54,7 @@ class SpotifyClon : ComponentActivity() {
     }
 }
 
-private enum class Screen { Login, Register, Home, Album, Buscar, Config, Perfil, Biblioteca, Playlist,BuscarUsuarios, PlaylistsUsuario, ListaSeguidores, ListaSiguiendo }
+private enum class Screen { Login, Register, Home, Album, Buscar, Config, Perfil, Biblioteca, Playlist,BuscarUsuarios, PlaylistsUsuario, ListaSeguidores, ListaSiguiendo, PlaylistDetalle  }
 
 
 @Composable
@@ -190,9 +191,16 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
                     onAbrirPlaylist = { playlistId, nombre ->
                         selectedPlaylistId.value = playlistId
                         selectedPlaylistName.value = nombre
-                        current = Screen.Playlist
+                        current = Screen.PlaylistDetalle // 👈 ABRE LA NUEVA PANTALLA
                     }
                 )
+                Screen.PlaylistDetalle -> PlaylistDetalleScreen(
+                    userId = selectedPlaylistOwnerId.value,
+                    playlistId = selectedPlaylistId.value,
+                    playlistNombre = selectedPlaylistName.value,
+                    onBack = { current = Screen.PlaylistsUsuario }
+                )
+
 
                 Screen.Playlist -> PlaylistScreen(
                     uid = selectedPlaylistOwnerId.value.ifEmpty {

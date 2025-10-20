@@ -1,5 +1,6 @@
 package com.example.spotifyclone.Compos
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -130,6 +132,7 @@ fun ResultadoItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -174,9 +177,23 @@ fun ResultadoItem(
                     text = { Text("Reproducir") },
                     onClick = {
                         expanded = false
-                        // Aquí iría tu lógica de reproducción
+                        if (cancion.audioUrl.isNotBlank()) {
+
+                            AudioPlayerManager.setPlaylist(
+                                context = ctx,
+                                urls = listOf(cancion.audioUrl),
+                                songTitles = listOf(cancion.titulo),
+                                startIndex = 0,
+                                playlistId = "buscar_${cancion.id}"
+                            )
+                            Toast.makeText(ctx, "Reproduciendo: ${cancion.titulo}", Toast.LENGTH_SHORT).show()
+                        } else {
+
+                            Toast.makeText(ctx, "Sin audio disponible", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
+
                 DropdownMenuItem(
                     text = { Text("Agregar a playlist") },
                     onClick = {
