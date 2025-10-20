@@ -4,6 +4,7 @@ import com.example.spotifyclone.Compos.LoginScreen
 import com.example.spotifyclone.Compos.RegisterScreen
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -16,7 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.spotifyclone.Compos.AlbumScreen
 import com.example.spotifyclone.Compos.BuscarScreen
@@ -72,6 +75,7 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
         factory = UserViewModelFactory(UserRepository())
     )
     val miUsuario by userViewModel.usuarioActual.collectAsState(initial = null)
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         val miId = FirebaseAuth.getInstance().currentUser?.uid
@@ -133,11 +137,26 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
                     onGoPerfil = { current = Screen.Perfil }
                 )
 
+
+
                 Screen.Perfil -> PerfilScreen(
                     onBack = { current = Screen.Config },
                     onBuscarUsuarios = { current = Screen.BuscarUsuarios },
-                    onVerSeguidores = { current = Screen.ListaSeguidores },
-                    onVerSiguiendo = { current = Screen.ListaSiguiendo }
+                    onVerSeguidores = {
+                        if (miUsuario?.seguidores?.isNotEmpty() == true) {
+                            current = Screen.ListaSeguidores
+                        } else {
+                            Toast.makeText(context, "No tienes seguidores aún", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onVerSiguiendo = {
+                        if (miUsuario?.siguiendo?.isNotEmpty() == true) {
+                            current = Screen.ListaSiguiendo
+                        } else {
+                            Toast.makeText(context, "No sigues a nadie aún", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
                 )
                 Screen.Biblioteca -> LibraryScreen(
                     onBack = { current = Screen.Home },
@@ -214,30 +233,51 @@ private fun SpotifyCloneApp(isLoggedIn: Boolean) {
                 )
 
                 Screen.ListaSeguidores -> {
-                    ListaUsuariosScreen(
-                        userIds = miUsuario?.seguidores ?: emptyList(),
-                        titulo = "Seguidores",
-                        onBack = { current = Screen.Perfil },
-                        onUsuarioClick = { userId ->
-                            selectedPlaylistOwnerId.value = userId
-                            current = Screen.PlaylistsUsuario
-                        },
-                        viewModel = userViewModel
-                    )
+                    if (miUsuario != null && miUsuario?.seguidores != null) {
+                        ListaUsuariosScreen(
+                            userIds = miUsuario?.seguidores ?: emptyList(),
+                            titulo = "Seguidores",
+                            onBack = { current = Screen.Perfil },
+                            onUsuarioClick = { userId ->
+                                selectedPlaylistOwnerId.value = userId
+                                current = Screen.PlaylistsUsuario
+                            },
+                            viewModel = userViewModel
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF1DB954))
+                        }
+                    }
                 }
 
                 Screen.ListaSiguiendo -> {
-                    ListaUsuariosScreen(
-                        userIds = miUsuario?.siguiendo ?: emptyList(),
-                        titulo = "Siguiendo",
-                        onBack = { current = Screen.Perfil },
-                        onUsuarioClick = { userId ->
-                            selectedPlaylistOwnerId.value = userId
-                            current = Screen.PlaylistsUsuario
-                        },
-                        viewModel = userViewModel
-                    )
+                    if (miUsuario != null && miUsuario?.siguiendo != null) {
+                        ListaUsuariosScreen(
+                            userIds = miUsuario?.siguiendo ?: emptyList(),
+                            titulo = "Siguiendo",
+                            onBack = { current = Screen.Perfil },
+                            onUsuarioClick = { userId ->
+                                selectedPlaylistOwnerId.value = userId
+                                current = Screen.PlaylistsUsuario
+                            },
+                            viewModel = userViewModel
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF1DB954))
+                        }
+                    }
                 }
+
+
+
 
 
             }

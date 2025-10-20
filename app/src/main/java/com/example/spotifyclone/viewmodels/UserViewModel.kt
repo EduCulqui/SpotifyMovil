@@ -22,6 +22,13 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    // --- NUEVOS flujos reactivos para seguidores y siguiendo ---
+    private val _seguidoresUsuarios = MutableStateFlow<List<Usuario>>(emptyList())
+    val seguidoresUsuarios: StateFlow<List<Usuario>> = _seguidoresUsuarios
+
+    private val _siguiendoUsuarios = MutableStateFlow<List<Usuario>>(emptyList())
+    val siguiendoUsuarios: StateFlow<List<Usuario>> = _siguiendoUsuarios
+
     // 🔹 Cargar todos los usuarios (excepto el actual)
     fun cargarUsuarios(idActual: String?) {
         viewModelScope.launch {
@@ -40,6 +47,7 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
     }
 
     // 🔹 Obtener usuarios por una lista de IDs (seguidores o siguiendo)
+    // (se mantiene como suspend para uso puntual)
     suspend fun obtenerUsuariosPorIds(listaIds: List<String>): List<Usuario> {
         if (listaIds.isEmpty()) return emptyList()
         return try {
@@ -50,16 +58,32 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
         }
     }
 
-    // 🔹 Cargar usuario actual
+    // 🔹 Cargar usuario actual (y además cargar sus seguidores/siguiendo reactivos)
     fun cargarUsuarioActual(id: String) {
         viewModelScope.launch {
             _cargando.value = true
             try {
                 val user = repository.obtenerUsuarioPorId(id)
-                _usuarioActual.value = user.copy(
+                val usuarioLimpio = user.copy(
                     seguidores = user.seguidores ?: emptyList(),
                     siguiendo = user.siguiendo ?: emptyList()
                 )
+                _usuarioActual.value = usuarioLimpio
+
+                // Cargar las listas de usuarios (detalles) de seguidores y siguiendo
+                // Si las listas son grandes, esto puede dividirse/optimizarse.
+                _siguiendoUsuarios.value = if (usuarioLimpio.siguiendo.isNullOrEmpty()) {
+                    emptyList()
+                } else {
+                    repository.obtenerUsuariosPorIds(usuarioLimpio.siguiendo)
+                }
+
+                _seguidoresUsuarios.value = if (usuarioLimpio.seguidores.isNullOrEmpty()) {
+                    emptyList()
+                } else {
+                    repository.obtenerUsuariosPorIds(usuarioLimpio.seguidores)
+                }
+
             } catch (e: Exception) {
                 _error.value = e.message
             } finally {
@@ -97,7 +121,38 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.seguirUsuario(idActual, idOtro)
+                // actualizar el estado local optimista
                 actualizarEstadoLocal(idOtro, seguir = true)
+
+                // además actualizar las colecciones de objetos (detalles) de siguiendo/seguidores
+                // Intentamos añadir el objeto Usuario desde la lista general si existe
+                val posible = _usuarios.value.find { it.id == idOtro }
+                posible?.let { seguidoUsuario ->
+                    // actualizar lista de siguiendo del usuario actual
+                    _siguiendoUsuarios.value = _siguiendoUsuarios.value + seguidoUsuario
+                }
+                // actualizar seguidores del usuario "otro" si lo tenemos en _usuarios
+                val idActualNoNulo = _usuarioActual.value?.id
+                if (idActualNoNulo != null) {
+                    _usuarios.value = _usuarios.value.map { usuario ->
+                        if (usuario.id == idOtro) {
+                            val nuevosSeguidores = (usuario.seguidores ?: emptyList()).toMutableList()
+                            if (!nuevosSeguidores.contains(idActualNoNulo)) nuevosSeguidores.add(idActualNoNulo)
+                            usuario.copy(seguidores = nuevosSeguidores)
+                        } else usuario
+                    }
+
+                    // Si estamos viendo el perfil del otro usuario en memoria (por ejemplo en _seguidoresUsuarios),
+                    // actualizamos esa lista para que la UI también lo vea.
+                    _seguidoresUsuarios.value = _seguidoresUsuarios.value.map { u ->
+                        if (u.id == idOtro) {
+                            val nuevos = (u.seguidores ?: emptyList()).toMutableList()
+                            if (!nuevos.contains(idActualNoNulo)) nuevos.add(idActualNoNulo)
+                            u.copy(seguidores = nuevos)
+                        } else u
+                    }
+                }
+
             } catch (e: Exception) {
                 _error.value = e.message
             }
@@ -109,7 +164,31 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.dejarDeSeguirUsuario(idActual, idOtro)
+                // actualizar el estado local
                 actualizarEstadoLocal(idOtro, seguir = false)
+
+                // actualizar listas de objetos (detalles)
+                _siguiendoUsuarios.value = _siguiendoUsuarios.value.filterNot { it.id == idOtro }
+
+                val idActualNoNulo = _usuarioActual.value?.id
+                if (idActualNoNulo != null) {
+                    _usuarios.value = _usuarios.value.map { usuario ->
+                        if (usuario.id == idOtro) {
+                            val nuevosSeguidores = (usuario.seguidores ?: emptyList()).toMutableList()
+                            nuevosSeguidores.remove(idActualNoNulo)
+                            usuario.copy(seguidores = nuevosSeguidores)
+                        } else usuario
+                    }
+
+                    _seguidoresUsuarios.value = _seguidoresUsuarios.value.map { u ->
+                        if (u.id == idOtro) {
+                            val nuevos = (u.seguidores ?: emptyList()).toMutableList()
+                            nuevos.remove(idActualNoNulo)
+                            u.copy(seguidores = nuevos)
+                        } else u
+                    }
+                }
+
             } catch (e: Exception) {
                 _error.value = e.message
             }
@@ -127,6 +206,7 @@ class UserViewModel(private val repository: UserRepository) : ViewModel() {
             nuevosSiguiendo.remove(idOtro)
         }
 
+        // Actualiza usuarioActual
         _usuarioActual.value = actual.copy(siguiendo = nuevosSiguiendo)
 
         // 🔹 Actualizar lista general de usuarios para que Compose reaccione

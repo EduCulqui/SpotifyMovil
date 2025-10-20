@@ -41,8 +41,8 @@ class UserRepository {
     suspend fun obtenerUsuariosPorIds(ids: List<String>): List<Usuario> {
         if (ids.isEmpty()) return emptyList()
         return try {
-            val snapshot = usuariosRef.whereIn("id", ids).get().await()
-            snapshot.documents.mapNotNull { doc ->
+            ids.mapNotNull { id ->
+                val doc = usuariosRef.document(id).get().await()
                 val user = doc.toObject(Usuario::class.java)
                 user?.copy(
                     id = doc.id,
@@ -54,6 +54,7 @@ class UserRepository {
             emptyList()
         }
     }
+
 
     // 🔹 Seguir a un usuario
     suspend fun seguirUsuario(idActual: String, idOtro: String) {
